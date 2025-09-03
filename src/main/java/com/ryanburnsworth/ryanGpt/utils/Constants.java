@@ -9,4 +9,5 @@ public class Constants {
     public final static int MAX_CHAT_MESSAGES = 3;
     public final static double TEMPERATURE = 0.75;
     public final static int MAX_COMPLETION_TOKENS = 300;
+    public final static int MAX_VISION_COMPLETION_TOKENS = 500;
 }

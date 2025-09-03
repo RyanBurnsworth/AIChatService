@@ -95,8 +95,6 @@ public class ChatServiceImpl implements ChatService {
 
         ChatRequest.ChatRequestBuilder builder = ChatRequest.builder()
                 .model(Constants.GPT_MODEL)
-                .message(io.github.sashirestela.openai.domain.chat.ChatMessage.SystemMessage.of(Prompts.chatCompletionPrompt))
-                .message(io.github.sashirestela.openai.domain.chat.ChatMessage.UserMessage.of(userInput))
                 .temperature(TEMPERATURE)
                 .maxCompletionTokens(MAX_COMPLETION_TOKENS);
 
@@ -105,6 +103,9 @@ public class ChatServiceImpl implements ChatService {
             builder.message(io.github.sashirestela.openai.domain.chat.ChatMessage.SystemMessage.of(msg.getAiOutput()));
             builder.message(io.github.sashirestela.openai.domain.chat.ChatMessage.UserMessage.of(msg.getUserInput()));
         }
+
+        builder.message(io.github.sashirestela.openai.domain.chat.ChatMessage.SystemMessage.of(Prompts.chatCompletionPrompt));
+        builder.message(io.github.sashirestela.openai.domain.chat.ChatMessage.UserMessage.of(userInput));
 
         return builder.build();
     }
@@ -119,8 +120,8 @@ public class ChatServiceImpl implements ChatService {
                         io.github.sashirestela.openai.domain.chat.ChatMessage.UserMessage.of(List.of(
                                 ContentPart.ContentPartText.of(userInput),
                                 ContentPart.ContentPartImageUrl.of(ContentPart.ContentPartImageUrl.ImageUrl.of(Base64Util.encode(Constants.FILE_LOCATION, Base64Util.MediaType.IMAGE)))))))
-                .temperature(0.75)
-                .maxCompletionTokens(500)
+                .temperature(TEMPERATURE)
+                .maxCompletionTokens(MAX_VISION_COMPLETION_TOKENS)
                 .build();
 
         return VisionChatRequest.builder()

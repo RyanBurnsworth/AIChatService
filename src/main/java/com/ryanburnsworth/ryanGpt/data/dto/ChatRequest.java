@@ -1,9 +1,9 @@
-package com.ryanburnsworth.ryanGpt.data;
+package com.ryanburnsworth.ryanGpt.data.dto;
 
 import lombok.Getter;
 import lombok.Setter;
 
-public class GPTRequest {
+public class ChatRequest {
     @Getter
     @Setter
     String userInput;

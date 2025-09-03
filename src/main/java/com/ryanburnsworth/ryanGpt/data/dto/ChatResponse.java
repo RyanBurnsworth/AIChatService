@@ -1,10 +1,10 @@
-package com.ryanburnsworth.ryanGpt.data;
+package com.ryanburnsworth.ryanGpt.data.dto;
 
 import lombok.Builder;
 import lombok.Getter;
 
 @Builder
-public class GPTResponse {
+public class ChatResponse {
     @Getter
     String response;
 }

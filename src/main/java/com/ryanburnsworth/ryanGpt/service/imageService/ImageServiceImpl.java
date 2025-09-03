@@ -1,5 +1,6 @@
-package com.ryanburnsworth.ryanGpt.utils;
+package com.ryanburnsworth.ryanGpt.service.imageService;
 
+import com.ryanburnsworth.ryanGpt.utils.Constants;
 import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -7,9 +8,11 @@ import java.io.OutputStream;
 import java.util.Base64;
 
 @Service
-public class ImageUtil {
-    public ImageUtil() {}
+public class ImageServiceImpl implements ImageService {
+    public ImageServiceImpl() {
+    }
 
+    @Override
     public void saveBase64Image(String base64Image) {
         try {
 

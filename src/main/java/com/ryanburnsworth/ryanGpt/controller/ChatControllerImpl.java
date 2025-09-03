@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.ryanburnsworth.ryanGpt.service.chatService.ChatService;
 
+import static com.ryanburnsworth.ryanGpt.utils.Constants.CHAT_ENDPOINT;
+
 @RestController
-@RequestMapping("/api/v1/chat")
+@RequestMapping(CHAT_ENDPOINT)
 public class ChatControllerImpl implements ChatController {
 
     private final ChatService chatService;

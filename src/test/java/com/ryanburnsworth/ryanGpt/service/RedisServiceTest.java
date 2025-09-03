@@ -1,6 +1,6 @@
 package com.ryanburnsworth.ryanGpt.service;
 
-import com.ryanburnsworth.ryanGpt.data.dto.RedisChatMessage;
+import com.ryanburnsworth.ryanGpt.data.dto.ChatMessage;
 import com.ryanburnsworth.ryanGpt.service.redis.RedisServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,10 +20,10 @@ import static org.mockito.Mockito.*;
 class RedisServiceTest {
 
     @Mock
-    private RedisTemplate<String, RedisChatMessage> redisTemplate;
+    private RedisTemplate<String, ChatMessage> redisTemplate;
 
     @Mock
-    private ListOperations<String, RedisChatMessage> listOperations;
+    private ListOperations<String, ChatMessage> listOperations;
 
     @InjectMocks
     private RedisServiceImpl redisService;
@@ -36,50 +36,42 @@ class RedisServiceTest {
     }
 
     @Test
-    void testSaveChatMessageToRedis() {
-        // Arrange
-        String userInput = "Hello";
-        String aiOutput = "Hi there!";
-        String base64Image = "fakeBase64==";
+    void testSaveChatMessage() {
+        ChatMessage chatMessage = getChatMessageDTO("Hello", "Hi there!", "fakeBase64==");
 
-        // Act
-        redisService.saveChatMessageToRedis(userInput, aiOutput, base64Image);
+        redisService.saveChatMessage(chatMessage);
 
-        // Assert
-        ArgumentCaptor<RedisChatMessage> captor = ArgumentCaptor.forClass(RedisChatMessage.class);
+        ArgumentCaptor<ChatMessage> captor = ArgumentCaptor.forClass(ChatMessage.class);
         verify(listOperations, times(1)).leftPush(eq("chat_messages"), captor.capture());
 
-        RedisChatMessage savedMessage = captor.getValue();
-        assertEquals(userInput, savedMessage.getUserInput());
-        assertEquals(aiOutput, savedMessage.getAiOutput());
-        assertEquals(base64Image, savedMessage.getBase64Image());
+        ChatMessage savedMessage = captor.getValue();
+        assertEquals(chatMessage.getUserInput(), savedMessage.getUserInput());
+        assertEquals(chatMessage.getAiOutput(), savedMessage.getAiOutput());
+        assertEquals(chatMessage.getBase64Image(), savedMessage.getBase64Image());
     }
 
     @Test
-    void testGetChatMessagesFromRedis() {
-        // Arrange
-        RedisChatMessage message1 = RedisChatMessage.builder()
-                .userInput("Hi")
-                .aiOutput("Hello")
-                .base64Image(null)
-                .build();
-        RedisChatMessage message2 = RedisChatMessage.builder()
-                .userInput("How are you?")
-                .aiOutput("I'm fine")
-                .base64Image(null)
-                .build();
+    void testGetLatestChatMessages() {
+        ChatMessage message1 = getChatMessageDTO("Hi", "Hello", null);
+        ChatMessage message2 = getChatMessageDTO("How are you?", "I'm fine", null);
 
         when(listOperations.range("chat_messages", 0, 2)).thenReturn(List.of(message1, message2));
 
-        // Act
-        List<RedisChatMessage> result = redisService.getChatMessagesFromRedis(3);
+        List<ChatMessage> result = redisService.getLatestChatMessages(3);
 
-        // Assert
         assertNotNull(result);
         assertEquals(2, result.size());
         assertEquals("Hi", result.get(0).getUserInput());
         assertEquals("I'm fine", result.get(1).getAiOutput());
 
         verify(listOperations, times(1)).range("chat_messages", 0, 2);
+    }
+
+    private ChatMessage getChatMessageDTO(String userInput, String aiOutput, String base64Image) {
+        return ChatMessage.builder()
+                .userInput(userInput)
+                .aiOutput(aiOutput)
+                .base64Image(base64Image)
+                .build();
     }
 }

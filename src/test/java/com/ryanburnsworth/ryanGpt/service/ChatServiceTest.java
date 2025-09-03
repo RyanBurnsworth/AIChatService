@@ -2,6 +2,7 @@ package com.ryanburnsworth.ryanGpt.service;
 
 import com.ryanburnsworth.ryanGpt.service.chatService.ChatService;
 import com.ryanburnsworth.ryanGpt.service.chatService.ChatServiceImpl;
+import com.ryanburnsworth.ryanGpt.service.databaseService.DatabaseService;
 import com.ryanburnsworth.ryanGpt.service.imageService.ImageService;
 import com.ryanburnsworth.ryanGpt.service.redis.RedisService;
 import io.github.sashirestela.openai.OpenAI;
@@ -19,9 +20,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.ryanburnsworth.ryanGpt.utils.Constants.*;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -43,6 +46,9 @@ class ChatServiceTest {
     private RedisService mockRedisService;
 
     @Mock
+    private DatabaseService mockDatabaseService;
+
+    @Mock
     private Chat mockChat;
 
     @Mock
@@ -59,7 +65,7 @@ class ChatServiceTest {
 
     @BeforeEach
     void setUp() {
-        chatService = new ChatServiceImpl(TEST_API_KEY, TEST_ORG_ID, TEST_PROJECT_ID, mockImageService, mockRedisService);
+        chatService = new ChatServiceImpl(TEST_API_KEY, TEST_ORG_ID, TEST_PROJECT_ID, mockImageService, mockRedisService, mockDatabaseService);
 
         // Inject mocks using reflection since they're private fields
         ReflectionTestUtils.setField(chatService, "openAIClient", mockOpenAIClient);
@@ -68,7 +74,7 @@ class ChatServiceTest {
     @Test
     void constructor_ShouldInitializeClientWithCorrectParameters() {
         // Create a new instance to test constructor
-        ChatServiceImpl newService = new ChatServiceImpl(TEST_API_KEY, TEST_ORG_ID, TEST_PROJECT_ID, mockImageService, mockRedisService);
+        ChatServiceImpl newService = new ChatServiceImpl(TEST_API_KEY, TEST_ORG_ID, TEST_PROJECT_ID, mockImageService, mockRedisService, mockDatabaseService);
 
         // Verify that the service was created successfully
         assertNotNull(newService);
@@ -78,41 +84,125 @@ class ChatServiceTest {
     void getResponse_WithoutImage_ShouldReturnTextResponse() {
         setupMockChatResponse();
 
+        com.ryanburnsworth.ryanGpt.data.dto.ChatMessage chatMessage =
+                getChatMessage(TEST_USER_INPUT, TEST_RESPONSE, "");
+
+        when(mockRedisService.getLatestChatMessages(MAX_CHAT_MESSAGES))
+                .thenReturn(List.of(new com.ryanburnsworth.ryanGpt.data.dto.ChatMessage()));
+
         String result = chatService.getResponse(TEST_USER_INPUT, null);
 
-        assertEquals(TEST_RESPONSE, result);
-        verify(mockOpenAIClient).chatCompletions();
-        verify(mockChatCompletions).createStream(any(ChatRequest.class));
-        verify(mockRedisService).getChatMessagesFromRedis(MAX_CHAT_MESSAGES);
-        verify(mockRedisService).saveChatMessageToRedis(TEST_USER_INPUT, TEST_RESPONSE, "");
-        verifyNoInteractions(mockImageService);
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertEquals(TEST_RESPONSE, result);
+            verify(mockOpenAIClient).chatCompletions();
+            verify(mockChatCompletions).createStream(any(ChatRequest.class));
+            verify(mockRedisService).getLatestChatMessages(MAX_CHAT_MESSAGES);
+            verify(mockRedisService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals(TEST_RESPONSE) &&
+                            saved.getBase64Image().isEmpty()
+            ));
+            verify(mockDatabaseService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals(TEST_RESPONSE) &&
+                            saved.getBase64Image().isEmpty()
+            ));
+            verify(mockDatabaseService, never()).getLatestChatMessages(MAX_CHAT_MESSAGES);
+            verifyNoInteractions(mockImageService);
+        });
     }
 
     @Test
     void getResponse_WithEmptyImage_ShouldReturnTextResponse() {
         setupMockChatResponse();
 
+        com.ryanburnsworth.ryanGpt.data.dto.ChatMessage chatMessage =
+                getChatMessage(TEST_USER_INPUT, TEST_RESPONSE, "");
+
+        when(mockRedisService.getLatestChatMessages(MAX_CHAT_MESSAGES))
+                .thenReturn(List.of(new com.ryanburnsworth.ryanGpt.data.dto.ChatMessage()));
+
         String result = chatService.getResponse(TEST_USER_INPUT, "");
 
-        assertEquals(TEST_RESPONSE, result);
-        verify(mockOpenAIClient).chatCompletions();
-        verify(mockChatCompletions).createStream(any(ChatRequest.class));
-        verify(mockRedisService).getChatMessagesFromRedis(MAX_CHAT_MESSAGES);
-        verify(mockRedisService).saveChatMessageToRedis(TEST_USER_INPUT, TEST_RESPONSE, "");
-        verifyNoInteractions(mockImageService);
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertEquals(TEST_RESPONSE, result);
+            verify(mockOpenAIClient).chatCompletions();
+            verify(mockChatCompletions).createStream(any(ChatRequest.class));
+            verify(mockRedisService).getLatestChatMessages(MAX_CHAT_MESSAGES);
+            verify(mockRedisService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals(TEST_RESPONSE) &&
+                            saved.getBase64Image().isEmpty()
+            ));
+            verify(mockDatabaseService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals(TEST_RESPONSE) &&
+                            saved.getBase64Image().isEmpty()
+            ));
+            verify(mockDatabaseService, never()).getLatestChatMessages(MAX_CHAT_MESSAGES);
+            verifyNoInteractions(mockImageService);
+        });
+    }
+
+
+    @Test
+    void getResponse_WithDatabaseChatMessages_ShouldReturnTextResponse() {
+        setupMockChatResponse();
+
+        com.ryanburnsworth.ryanGpt.data.dto.ChatMessage chatMessage =
+                getChatMessage(TEST_USER_INPUT, TEST_RESPONSE, "");
+
+        when(mockRedisService.getLatestChatMessages(MAX_CHAT_MESSAGES))
+                .thenReturn(List.of());
+
+        String result = chatService.getResponse(TEST_USER_INPUT, "");
+
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertEquals(TEST_RESPONSE, result);
+            verify(mockOpenAIClient).chatCompletions();
+            verify(mockChatCompletions).createStream(any(ChatRequest.class));
+            verify(mockRedisService).getLatestChatMessages(MAX_CHAT_MESSAGES);
+            verify(mockDatabaseService).getLatestChatMessages(MAX_CHAT_MESSAGES);
+            verify(mockRedisService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals(TEST_RESPONSE) &&
+                            saved.getBase64Image().isEmpty()
+            ));
+            verify(mockDatabaseService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals(TEST_RESPONSE) &&
+                            saved.getBase64Image().isEmpty()
+            ));
+            verifyNoInteractions(mockImageService);
+        });
     }
 
     @Test
     void getResponse_WithImage_ShouldReturnVisionResponse() {
         setupMockChatResponse();
 
+        com.ryanburnsworth.ryanGpt.data.dto.ChatMessage chatMessage =
+                getChatMessage(TEST_USER_INPUT, TEST_RESPONSE, TEST_BASE64_IMAGE);
+
         String result = chatService.getResponse(TEST_USER_INPUT, TEST_BASE64_IMAGE);
 
-        assertEquals(TEST_RESPONSE, result);
-        verify(mockImageService).saveBase64Image(TEST_BASE64_IMAGE);
-        verify(mockOpenAIClient).chatCompletions();
-        verify(mockChatCompletions).createStream(any(ChatRequest.class));
-        verify(mockRedisService).saveChatMessageToRedis(TEST_USER_INPUT, TEST_RESPONSE, TEST_BASE64_IMAGE);
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertEquals(TEST_RESPONSE, result);
+            verify(mockImageService).saveBase64Image(TEST_BASE64_IMAGE);
+            verify(mockOpenAIClient).chatCompletions();
+            verify(mockChatCompletions).createStream(any(ChatRequest.class));
+            verify(mockRedisService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals(TEST_RESPONSE) &&
+                            saved.getBase64Image().equals(TEST_BASE64_IMAGE)
+            ));
+            verify(mockDatabaseService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals(TEST_RESPONSE) &&
+                            saved.getBase64Image().equals(TEST_BASE64_IMAGE)
+            ));
+            verify(mockDatabaseService, never()).getLatestChatMessages(MAX_CHAT_MESSAGES);
+        });
     }
 
     @Test
@@ -140,11 +230,29 @@ class ChatServiceTest {
         when(mockOpenAIClient.chatCompletions()).thenReturn(mockChatCompletions);
         when(mockChatCompletions.createStream(any(ChatRequest.class))).thenReturn(future);
 
+        when(mockRedisService.getLatestChatMessages(MAX_CHAT_MESSAGES))
+                .thenReturn(List.of(new com.ryanburnsworth.ryanGpt.data.dto.ChatMessage()));
+
+        com.ryanburnsworth.ryanGpt.data.dto.ChatMessage chatMessage =
+                getChatMessage(TEST_USER_INPUT, "Hello there friend!", "");
+
         String result = chatService.getResponse(TEST_USER_INPUT, null);
 
-        assertEquals("Hello there friend!", result);
-        verify(mockRedisService).getChatMessagesFromRedis(MAX_CHAT_MESSAGES);
-        verify(mockRedisService).saveChatMessageToRedis(TEST_USER_INPUT, "Hello there friend!", "");
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertEquals(chatMessage.getAiOutput(), result);
+            verify(mockRedisService).getLatestChatMessages(MAX_CHAT_MESSAGES);
+            verify(mockRedisService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals("Hello there friend!") &&
+                            saved.getBase64Image().isEmpty()
+            ));
+            verify(mockDatabaseService).saveChatMessage(argThat(saved ->
+                    saved.getUserInput().equals(TEST_USER_INPUT) &&
+                            saved.getAiOutput().equals("Hello there friend!") &&
+                            saved.getBase64Image().isEmpty()
+            ));
+            verify(mockDatabaseService, never()).getLatestChatMessages(MAX_CHAT_MESSAGES);
+        });
     }
 
     @Test
@@ -228,10 +336,10 @@ class ChatServiceTest {
             assertEquals(2, messages.size());
 
             // First message should be system message
-            assertTrue(messages.get(0) instanceof ChatMessage.SystemMessage);
+            assertInstanceOf(ChatMessage.SystemMessage.class, messages.get(0));
 
             // Second message should be user message
-            assertTrue(messages.get(1) instanceof ChatMessage.UserMessage);
+            assertInstanceOf(ChatMessage.UserMessage.class, messages.get(1));
 
             return true;
         }));
@@ -255,7 +363,7 @@ class ChatServiceTest {
             assertEquals(1, messages.size());
 
             // Should be a user message with content parts
-            assertTrue(messages.get(0) instanceof ChatMessage.UserMessage);
+            assertInstanceOf(ChatMessage.UserMessage.class, messages.get(0));
 
             return true;
         }));
@@ -270,5 +378,13 @@ class ChatServiceTest {
 
         when(mockOpenAIClient.chatCompletions()).thenReturn(mockChatCompletions);
         when(mockChatCompletions.createStream(any(ChatRequest.class))).thenReturn(future);
+    }
+
+    private com.ryanburnsworth.ryanGpt.data.dto.ChatMessage getChatMessage(String userInput, String aiOutput, String base64Image) {
+        return com.ryanburnsworth.ryanGpt.data.dto.ChatMessage.builder()
+                .userInput(userInput)
+                .aiOutput(aiOutput)
+                .base64Image(base64Image)
+                .build();
     }
 }

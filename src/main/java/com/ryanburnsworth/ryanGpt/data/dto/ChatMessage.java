@@ -9,8 +9,10 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor      // Jackson needs this for deserialization
 @AllArgsConstructor     // Builder and full-args constructor
-public class RedisChatMessage {
+public class ChatMessage {
     private String userInput;
+
     private String aiOutput;
+
     private String base64Image;
 }

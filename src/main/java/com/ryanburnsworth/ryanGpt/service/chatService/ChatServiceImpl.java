@@ -119,7 +119,7 @@ public class ChatServiceImpl implements ChatService {
                 .messages(List.of(
                         io.github.sashirestela.openai.domain.chat.ChatMessage.UserMessage.of(List.of(
                                 ContentPart.ContentPartText.of(userInput),
-                                ContentPart.ContentPartImageUrl.of(ContentPart.ContentPartImageUrl.ImageUrl.of(Base64Util.encode(Constants.FILE_LOCATION, Base64Util.MediaType.IMAGE)))))))
+                                ContentPart.ContentPartImageUrl.of(ContentPart.ContentPartImageUrl.ImageUrl.of(Base64Util.encode(Constants.FILE_LOCATION + "/" + filename, Base64Util.MediaType.IMAGE)))))))
                 .temperature(TEMPERATURE)
                 .maxCompletionTokens(MAX_VISION_COMPLETION_TOKENS)
                 .build();

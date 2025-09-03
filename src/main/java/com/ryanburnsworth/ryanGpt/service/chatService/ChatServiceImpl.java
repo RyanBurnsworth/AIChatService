@@ -1,6 +1,7 @@
 package com.ryanburnsworth.ryanGpt.service.chatService;
 
 import com.ryanburnsworth.ryanGpt.data.dto.ChatMessage;
+import com.ryanburnsworth.ryanGpt.data.dto.VisionChatRequest;
 import com.ryanburnsworth.ryanGpt.service.databaseService.DatabaseService;
 import com.ryanburnsworth.ryanGpt.service.imageService.ImageService;
 import com.ryanburnsworth.ryanGpt.service.redis.RedisService;
@@ -53,20 +54,20 @@ public class ChatServiceImpl implements ChatService {
     public String getResponse(String userInput, String base64Image) {
         // get chat completion for an image request
         if (base64Image != null && !base64Image.isEmpty()) {
-            ChatRequest chatRequest = getChatCompletionUsingVisionRequest(userInput, base64Image);
+            VisionChatRequest visionChatRequest = getChatCompletionUsingVisionRequest(userInput, base64Image);
 
             // return the AI output text
-            return getChatCompletion(chatRequest, userInput, base64Image);
+            return getChatCompletion(visionChatRequest.getChatRequest(), userInput, base64Image, visionChatRequest.getFilename());
         }
 
         // if not base64Image, continue with a text only chat completion request
         ChatRequest chatRequest = getChatCompletionRequest(userInput);
 
         // return the AI output text
-        return getChatCompletion(chatRequest, userInput, "");
+        return getChatCompletion(chatRequest, userInput, "", "");
     }
 
-    private String getChatCompletion(ChatRequest chatRequest, String userInput, String base64Image) {
+    private String getChatCompletion(ChatRequest chatRequest, String userInput, String base64Image, String imageFilename) {
         Stream<Chat> chatResponse = openAIClient.chatCompletions().createStream(chatRequest).join();
 
         StringBuilder sb = new StringBuilder();
@@ -80,6 +81,10 @@ public class ChatServiceImpl implements ChatService {
 
         // store chat message in data storage
         saveChatMessage(userInput, aiOutput, base64Image);
+
+        if (imageFilename != null && !imageFilename.isEmpty()) {
+            removeImageFile(imageFilename);
+        }
 
         return aiOutput;
     }
@@ -104,11 +109,11 @@ public class ChatServiceImpl implements ChatService {
         return builder.build();
     }
 
-    private ChatRequest getChatCompletionUsingVisionRequest(String userInput, String base64Image) {
+    private VisionChatRequest getChatCompletionUsingVisionRequest(String userInput, String base64Image) {
         // store the image file locally in the resources/static folder as file.jpg
-        imageService.saveBase64Image(base64Image);
+        String filename = imageService.saveBase64Image(base64Image);
 
-        return ChatRequest.builder()
+        ChatRequest request = ChatRequest.builder()
                 .model(Constants.GPT_MODEL)
                 .messages(List.of(
                         io.github.sashirestela.openai.domain.chat.ChatMessage.UserMessage.of(List.of(
@@ -116,6 +121,11 @@ public class ChatServiceImpl implements ChatService {
                                 ContentPart.ContentPartImageUrl.of(ContentPart.ContentPartImageUrl.ImageUrl.of(Base64Util.encode(Constants.FILE_LOCATION, Base64Util.MediaType.IMAGE)))))))
                 .temperature(0.75)
                 .maxCompletionTokens(500)
+                .build();
+
+        return VisionChatRequest.builder()
+                .filename(filename)
+                .chatRequest(request)
                 .build();
     }
 
@@ -146,6 +156,14 @@ public class ChatServiceImpl implements ChatService {
 
             // save to Postgres
             databaseService.saveChatMessage(chatMessage);
+        });
+    }
+
+    @Async
+    private void removeImageFile(String filename) {
+        // delete the image file to conserve diskspace
+        CompletableFuture.runAsync(() -> {
+            imageService.deleteImageFile(filename);
         });
     }
 }

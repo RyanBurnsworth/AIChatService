@@ -140,6 +140,7 @@ class ChatServiceTest {
                             saved.getBase64Image().isEmpty()
             ));
             verify(mockDatabaseService, never()).getLatestChatMessages(MAX_CHAT_MESSAGES);
+            verify(mockImageService, never()).deleteImageFile("");
             verifyNoInteractions(mockImageService);
         });
     }
@@ -173,6 +174,7 @@ class ChatServiceTest {
                             saved.getAiOutput().equals(TEST_RESPONSE) &&
                             saved.getBase64Image().isEmpty()
             ));
+            verify(mockImageService, never()).deleteImageFile("");
             verifyNoInteractions(mockImageService);
         });
     }
@@ -183,6 +185,8 @@ class ChatServiceTest {
 
         com.ryanburnsworth.ryanGpt.data.dto.ChatMessage chatMessage =
                 getChatMessage(TEST_USER_INPUT, TEST_RESPONSE, TEST_BASE64_IMAGE);
+
+        when(mockImageService.saveBase64Image(TEST_BASE64_IMAGE)).thenReturn("filename");
 
         String result = chatService.getResponse(TEST_USER_INPUT, TEST_BASE64_IMAGE);
 
@@ -201,6 +205,7 @@ class ChatServiceTest {
                             saved.getAiOutput().equals(TEST_RESPONSE) &&
                             saved.getBase64Image().equals(TEST_BASE64_IMAGE)
             ));
+            verify(mockImageService).deleteImageFile("filename");
             verify(mockDatabaseService, never()).getLatestChatMessages(MAX_CHAT_MESSAGES);
         });
     }
@@ -251,6 +256,7 @@ class ChatServiceTest {
                             saved.getAiOutput().equals("Hello there friend!") &&
                             saved.getBase64Image().isEmpty()
             ));
+            verify(mockImageService, never()).deleteImageFile("");
             verify(mockDatabaseService, never()).getLatestChatMessages(MAX_CHAT_MESSAGES);
         });
     }
@@ -349,6 +355,8 @@ class ChatServiceTest {
     void getResponse_VisionRequest_ShouldCreateCorrectChatRequest() {
         setupMockChatResponse();
 
+        when(mockImageService.saveBase64Image(TEST_BASE64_IMAGE)).thenReturn("filename");
+
         chatService.getResponse(TEST_USER_INPUT, TEST_BASE64_IMAGE);
 
         verify(mockImageService).saveBase64Image(TEST_BASE64_IMAGE);
@@ -367,6 +375,10 @@ class ChatServiceTest {
 
             return true;
         }));
+
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            verify(mockImageService).deleteImageFile("filename");
+        });
     }
 
     private void setupMockChatResponse() {

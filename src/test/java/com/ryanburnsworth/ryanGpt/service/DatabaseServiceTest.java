@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class DatabaseServiceTest {
-
     private ChatMessageRepository mockRepository;
     private DatabaseServiceImpl databaseService;
 

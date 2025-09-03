@@ -13,8 +13,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class RedisServiceTest {
@@ -65,6 +64,34 @@ class RedisServiceTest {
         assertEquals("I'm fine", result.get(1).getAiOutput());
 
         verify(listOperations, times(1)).range("chat_messages", 0, 2);
+    }
+
+    @Test
+    void testErrorFetchingChatMessages_ReturnsEmptyList() {
+        when(listOperations.range("chat_messages", 0, 2))
+                .thenThrow(new RuntimeException("Failed to reach Redis"));
+
+        List<ChatMessage> result = redisService.getLatestChatMessages(3);
+
+        assertNotNull(result);
+        assertEquals(0, result.size());
+
+        verify(listOperations, times(1)).range("chat_messages", 0, 2);
+    }
+
+    @Test
+    void testErrorSavingChatMessage_Returns() {
+        ChatMessage message = getChatMessageDTO("Hi", "Hello", null);
+
+        when(redisTemplate.opsForList()).thenReturn(listOperations);
+
+        doThrow(new RuntimeException("Redis down"))
+                .when(listOperations).leftPush("chat_messages", message);
+
+        assertDoesNotThrow(() -> redisService.saveChatMessage(message));
+
+        verify(listOperations, times(1)).leftPush("chat_messages", message);
+        verify(redisTemplate, never()).expire(anyString(), any());
     }
 
     private ChatMessage getChatMessageDTO(String userInput, String aiOutput, String base64Image) {

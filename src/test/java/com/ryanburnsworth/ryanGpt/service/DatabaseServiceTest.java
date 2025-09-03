@@ -84,4 +84,16 @@ class DatabaseServiceTest {
 
         verify(mockRepository).save(any(ChatMessage.class));
     }
+
+    @Test
+    void getLatestChatMessages_WhenRepositoryThrowsException_ShouldNotFail() {
+        when(mockRepository.getLatestChatMessages(PageRequest.of(0, 2)))
+                .thenThrow(new RuntimeException("DB Error"));
+
+        List<com.ryanburnsworth.ryanGpt.data.dto.ChatMessage> messages = databaseService.getLatestChatMessages(2);
+
+        assertEquals(0, messages.size());
+
+        verify(mockRepository).getLatestChatMessages(PageRequest.of(0, 2));
+    }
 }

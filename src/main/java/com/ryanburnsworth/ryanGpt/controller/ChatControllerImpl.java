@@ -2,6 +2,7 @@ package com.ryanburnsworth.ryanGpt.controller;
 
 import com.ryanburnsworth.ryanGpt.data.dto.ChatRequest;
 import com.ryanburnsworth.ryanGpt.data.dto.ChatResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,6 +12,7 @@ import com.ryanburnsworth.ryanGpt.service.chatService.ChatService;
 
 import static com.ryanburnsworth.ryanGpt.utils.Constants.CHAT_ENDPOINT;
 
+@Slf4j
 @RestController
 @RequestMapping(CHAT_ENDPOINT)
 public class ChatControllerImpl implements ChatController {
@@ -37,7 +39,7 @@ public class ChatControllerImpl implements ChatController {
 
             return ResponseEntity.ok(chatResponse);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error fetching a response from LLM: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }

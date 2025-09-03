@@ -4,8 +4,15 @@ A GPT-4o-mini-powered chatbot that answers user questions about anything, includ
 ## Download and deploy using Docker Compose
 Step 1: Clone the project `git clone https://github.com/RyanBurnsworth/AIChatService`  
 Step 2: Navigate to the AIChatService root directory  
-Step 3: Update the docker-compose.yml to include your OPENAI key and ids.  
-Step 4: Deploy docker-compose.yml `docker-compose up -d`  
+Step 3: Create ```/src/main/resources/applications.properties```  
+Step 4: Add the following environment variables with your OpenAI API key and ids.  
+```
+openai.api-key: YOUR-OPENAI-API-KEY
+openai.organization-id: YOUR-OPENAI-ORGANIZATION-ID
+openai.project-id: YOUR-OPENAI-PROJECT-ID
+```
+
+Step 5: Deploy docker-compose.yml `docker-compose up -d`  
 
 ## API Usage:
 **POST** `http://localhost:8080/api/v1/chat`.  
